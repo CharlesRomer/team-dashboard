@@ -1,5 +1,6 @@
-module.exports = {
-    target: 'serverless',
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+    reactStrictMode: true,
     async redirects() {
       return [
         {
@@ -10,3 +11,5 @@ module.exports = {
       ]
     }
   }
+  
+  module.exports = nextConfig
