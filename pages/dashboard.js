@@ -1,65 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
-  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [data, setData] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/getData');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const jsonData = await response.json();
+        console.log('Received data:', jsonData); // Debug log
+        setData(Array.isArray(jsonData) ? jsonData : []);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError(error.message);
+        setLoading(false);
+      }
+    };
+
     fetchData();
   }, []);
 
-  const fetchData = async () => {
-    try {
-      const response = await fetch('/api/getData');
-      const jsonData = await response.json();
-      setData(jsonData);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (error) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded">
+          Error: {error}
+        </div>
+      </div>
+    );
+  }
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Team Dashboard</h1>
-      
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Data Visualization</h2>
-        <div className="h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="value" stroke="#8884d8" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
+      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Data Table</h2>
-        <div className="overflow-x-auto">
+        {data && data.length > 0 ? (
           <table className="min-w-full">
             <thead>
               <tr>
-                {data[0] && Object.keys(data[0]).map(header => (
-                  <th key={header} className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {Object.keys(data[0]).map((header) => (
+                  <th key={header} className="px-6 py-3 bg-gray-50 text-left">
                     {header}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.map((row, i) => (
-                <tr key={i}>
-                  {Object.values(row).map((value, j) => (
-                    <td key={j} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              {data.map((row, index) => (
+                <tr key={index}>
+                  {Object.values(row).map((value, i) => (
+                    <td key={i} className="px-6 py-4 border-t">
                       {value}
                     </td>
                   ))}
@@ -67,7 +74,9 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
-        </div>
+        ) : (
+          <p>No data available</p>
+        )}
       </div>
     </div>
   );
