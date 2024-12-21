@@ -1,4 +1,6 @@
 import { google } from 'googleapis';
+res.setHeader('Cache-Control', 'no-store');
+res.status(200).json(data);
 
 export default async function handler(req, res) {
   try {
