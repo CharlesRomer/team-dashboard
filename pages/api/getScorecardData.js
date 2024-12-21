@@ -1,6 +1,4 @@
 import { google } from 'googleapis';
-res.setHeader('Cache-Control', 'no-store');
-res.status(200).json(data);
 
 export default async function handler(req, res) {
   try {
@@ -29,9 +27,10 @@ export default async function handler(req, res) {
       owner: row[3]
     }));
 
-    res.status(200).json(data);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json(data);
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to fetch data' });
+    return res.status(500).json({ error: 'Failed to fetch data' });
   }
 }
