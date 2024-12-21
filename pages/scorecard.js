@@ -83,11 +83,9 @@ export default function WeeklyScorecard() {
   const router = useRouter();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeDepartment, setActiveDepartment] = useState('Marketing');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [fetchError, setFetchError] = useState({});
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -102,28 +100,10 @@ export default function WeeklyScorecard() {
     try {
       const response = await fetch(`/api/getScorecardData?department=${activeDepartment}`);
       const jsonData = await response.json();
-      
-      if (!response.ok) {
-        setFetchError(prev => ({
-          ...prev,
-          [activeDepartment]: jsonData.error || 'Failed to fetch data'
-        }));
-        setData([]);
-      } else {
-        setData(jsonData);
-        setFetchError(prev => ({
-          ...prev,
-          [activeDepartment]: null
-        }));
-      }
-      
+      setData(Array.isArray(jsonData) ? jsonData : []);
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Error fetching data:', err);
-      setFetchError(prev => ({
-        ...prev,
-        [activeDepartment]: err.message
-      }));
       setData([]);
     } finally {
       setLoading(false);
@@ -153,72 +133,6 @@ export default function WeeklyScorecard() {
         <Icon className="w-6 h-6" />
         {sidebarOpen && <span className="ml-4">{item.name}</span>}
       </button>
-    );
-  };
-
-  const renderErrorState = (error) => (
-    <div className="p-6 rounded-xl bg-[#222] text-gray-400">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
-        <div>
-          <h3 className="font-semibold text-red-400 mb-2">
-            {error.includes('does not exist') 
-              ? `No scorecard sheet found for ${activeDepartment}`
-              : error}
-          </h3>
-          {error.includes('does not exist') && (
-            <div className="text-sm">
-              <p className="mb-3">To create this scorecard:</p>
-              <ol className="list-decimal list-inside space-y-2">
-                <li>Open the Google Sheet</li>
-                <li>Create a new tab named "{activeDepartment}_Scorecard"</li>
-                <li>Add the required columns:</li>
-                <ul className="ml-6 mt-1 space-y-1">
-                  <li>• scorecard_name</li>
-                  <li>• goal</li>
-                  <li>• actual</li>
-                  <li>• owner</li>
-                </ul>
-              </ol>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="space-y-4">
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="h-32 rounded-xl animate-pulse bg-[#222]" />
-          ))}
-        </div>
-      );
-    }
-
-    if (fetchError[activeDepartment]) {
-      return renderErrorState(fetchError[activeDepartment]);
-    }
-
-    if (data.length === 0) {
-      return (
-        <div className="p-6 rounded-xl bg-[#222] text-gray-400">
-          <div className="flex items-center gap-3">
-            <PlusCircle className="w-6 h-6" />
-            <span>No scorecard items found for {activeDepartment}. Add some data to get started.</span>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        {data.map((item, index) => (
-          <ScoreCard key={index} item={item} />
-        ))}
-      </div>
     );
   };
 
@@ -261,14 +175,15 @@ export default function WeeklyScorecard() {
             <button 
               onClick={fetchData}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+              disabled={loading}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh Data
+              {loading ? 'Refreshing...' : 'Refresh Data'}
             </button>
           </div>
 
           {/* Department Tabs */}
-          <div className="flex gap-2 mb-8">
+          <div className="flex gap-2 mb-8 overflow-x-auto">
             {departments.map((dept) => (
               <button
                 key={dept}
@@ -284,15 +199,6 @@ export default function WeeklyScorecard() {
             ))}
           </div>
 
-          {/* Debug Info */}
-          <div className="mb-4 p-4 bg-[#222] rounded-lg">
-            <p className="text-gray-400">Debug Info:</p>
-            <p className="text-sm text-gray-500">Active Department: {activeDepartment}</p>
-            <p className="text-sm text-gray-500">Data Keys: {Object.keys(data).join(', ')}</p>
-            <p className="text-sm text-gray-500">Loading: {loading ? 'true' : 'false'}</p>
-            <p className="text-sm text-gray-500">Error: {error || 'none'}</p>
-          </div>
-
           {/* Scorecard List */}
           {loading ? (
             <div className="space-y-4">
@@ -300,20 +206,18 @@ export default function WeeklyScorecard() {
                 <div key={n} className="h-32 rounded-xl animate-pulse bg-[#222]" />
               ))}
             </div>
-          ) : error ? (
-            <div className="p-4 rounded-xl bg-red-500/20 text-red-400">
-              Error: {error}
-            </div>
-          ) : (
+          ) : data.length > 0 ? (
             <div className="space-y-4">
-              {data[activeDepartment]?.map((item, index) => (
+              {data.map((item, index) => (
                 <ScoreCard key={index} item={item} />
               ))}
-              {(!data[activeDepartment] || data[activeDepartment].length === 0) && (
-                <div className="p-4 rounded-xl bg-[#222] text-gray-400">
-                  No data available for {activeDepartment}
-                </div>
-              )}
+            </div>
+          ) : (
+            <div className="p-6 rounded-xl bg-[#222] text-gray-400">
+              <div className="flex items-center gap-3">
+                <PlusCircle className="w-6 h-6" />
+                <span>No scorecard items found for {activeDepartment}. Add some data to get started.</span>
+              </div>
             </div>
           )}
         </div>
