@@ -7,7 +7,11 @@ import {
   Settings, 
   Menu, 
   ClipboardList,
-  RefreshCw
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  PlusCircle
 } from 'lucide-react';
 
 const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
@@ -17,38 +21,53 @@ const ScoreCard = ({ item }) => {
   const isHit = percentage >= 100;
   
   return (
-    <div className="p-6 mb-4 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
-      <div className="flex items-center justify-between">
+    <div className="p-6 mb-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727] hover:translate-y-[-2px] transition-all duration-300">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        {/* Left side - Title and Owner */}
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-200">{item.scorecard_name}</h3>
-          <div className="mt-1 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-gray-200">{item.scorecard_name}</h3>
+          <div className="flex items-center gap-2">
             <span className="text-sm text-gray-400">Owner:</span>
-            <span className="text-sm font-medium text-gray-300">{item.owner}</span>
+            <span className="text-sm font-medium text-blue-400">{item.owner}</span>
           </div>
         </div>
-        
-        <div className="grid grid-cols-3 gap-8 items-center">
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-200">{item.actual.toLocaleString()}</div>
-            <div className="text-sm text-gray-400">Goal: {item.goal.toLocaleString()}</div>
+
+        {/* Middle - Numbers */}
+        <div className="flex flex-col items-center bg-[#222] rounded-xl p-4 min-w-[200px]">
+          <div className="text-4xl font-bold text-gray-200 mb-2">
+            {item.actual.toLocaleString()}
           </div>
-          
-          <div className="text-right">
-            <div className={`text-lg font-semibold ${percentage >= 100 ? 'text-green-500' : 'text-yellow-500'}`}>
+          <div className="text-sm text-gray-400">
+            Target: {item.goal.toLocaleString()}
+          </div>
+        </div>
+
+        {/* Right side - Progress and Status */}
+        <div className="flex flex-col items-end gap-2 min-w-[140px]">
+          <div className="flex items-center gap-2">
+            {percentage >= 100 ? (
+              <TrendingUp className="w-5 h-5 text-green-500" />
+            ) : (
+              <TrendingDown className="w-5 h-5 text-yellow-500" />
+            )}
+            <span className={`text-2xl font-bold ${
+              percentage >= 100 ? 'text-green-500' : 'text-yellow-500'
+            }`}>
               {percentage.toFixed(1)}%
-            </div>
+            </span>
           </div>
-          
-          <div className={`px-3 py-1 rounded-full text-center ${
-            isHit ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+          <div className={`px-4 py-2 rounded-full ${
+            isHit 
+              ? 'bg-green-500/20 text-green-500 border border-green-500/20' 
+              : 'bg-red-500/20 text-red-500 border border-red-500/20'
           }`}>
             {isHit ? 'Hit!' : 'Missed'}
           </div>
         </div>
       </div>
-      
+
       {/* Progress Bar */}
-      <div className="mt-4 w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+      <div className="mt-6 w-full h-2 bg-gray-800 rounded-full overflow-hidden">
         <div 
           className={`h-full rounded-full transition-all duration-500 ${
             percentage >= 100 ? 'bg-green-500' : 'bg-yellow-500'
@@ -62,12 +81,13 @@ const ScoreCard = ({ item }) => {
 
 export default function WeeklyScorecard() {
   const router = useRouter();
-  const [data, setData] = useState({});
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeDepartment, setActiveDepartment] = useState('Marketing');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [fetchError, setFetchError] = useState({});
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -80,18 +100,31 @@ export default function WeeklyScorecard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log('Fetching data for department:', activeDepartment);
       const response = await fetch(`/api/getScorecardData?department=${activeDepartment}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
       const jsonData = await response.json();
-      console.log('Received data:', jsonData);
-      setData(jsonData);
+      
+      if (!response.ok) {
+        setFetchError(prev => ({
+          ...prev,
+          [activeDepartment]: jsonData.error || 'Failed to fetch data'
+        }));
+        setData([]);
+      } else {
+        setData(jsonData);
+        setFetchError(prev => ({
+          ...prev,
+          [activeDepartment]: null
+        }));
+      }
+      
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Error fetching data:', err);
-      setError(err.message);
+      setFetchError(prev => ({
+        ...prev,
+        [activeDepartment]: err.message
+      }));
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -120,6 +153,72 @@ export default function WeeklyScorecard() {
         <Icon className="w-6 h-6" />
         {sidebarOpen && <span className="ml-4">{item.name}</span>}
       </button>
+    );
+  };
+
+  const renderErrorState = (error) => (
+    <div className="p-6 rounded-xl bg-[#222] text-gray-400">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="w-6 h-6 text-red-400 flex-shrink-0 mt-1" />
+        <div>
+          <h3 className="font-semibold text-red-400 mb-2">
+            {error.includes('does not exist') 
+              ? `No scorecard sheet found for ${activeDepartment}`
+              : error}
+          </h3>
+          {error.includes('does not exist') && (
+            <div className="text-sm">
+              <p className="mb-3">To create this scorecard:</p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>Open the Google Sheet</li>
+                <li>Create a new tab named "{activeDepartment}_Scorecard"</li>
+                <li>Add the required columns:</li>
+                <ul className="ml-6 mt-1 space-y-1">
+                  <li>• scorecard_name</li>
+                  <li>• goal</li>
+                  <li>• actual</li>
+                  <li>• owner</li>
+                </ul>
+              </ol>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="space-y-4">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-32 rounded-xl animate-pulse bg-[#222]" />
+          ))}
+        </div>
+      );
+    }
+
+    if (fetchError[activeDepartment]) {
+      return renderErrorState(fetchError[activeDepartment]);
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="p-6 rounded-xl bg-[#222] text-gray-400">
+          <div className="flex items-center gap-3">
+            <PlusCircle className="w-6 h-6" />
+            <span>No scorecard items found for {activeDepartment}. Add some data to get started.</span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {data.map((item, index) => (
+          <ScoreCard key={index} item={item} />
+        ))}
+      </div>
     );
   };
 
