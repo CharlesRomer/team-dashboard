@@ -3,7 +3,11 @@ import { google } from 'googleapis';
 
 export default async function handler(req, res) {
   try {
-    const { department = 'Marketing' } = req.query;
+    const { 
+      department = 'Marketing',
+      startDate,
+      endDate
+    } = req.query;
     
     const auth = new google.auth.GoogleAuth({
       credentials: {
@@ -15,32 +19,8 @@ export default async function handler(req, res) {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
-    // First, verify if the sheet exists
-    try {
-      const spreadsheet = await sheets.spreadsheets.get({
-        spreadsheetId: process.env.SHEET_ID,
-      });
-      
-      const sheetExists = spreadsheet.data.sheets.some(
-        sheet => sheet.properties.title === `${department}_Scorecard`
-      );
-      
-      if (!sheetExists) {
-        return res.status(404).json({
-          error: `No scorecard found for ${department}`,
-          details: `Sheet "${department}_Scorecard" does not exist`
-        });
-      }
-    } catch (error) {
-      console.error('Error checking sheet existence:', error);
-      return res.status(500).json({
-        error: 'Failed to verify sheet existence',
-        details: error.message
-      });
-    }
-
-    // Get the data from the sheet
-    const range = `${department}_Scorecard!A1:D`; // Include headers now
+    // Get all data including the metric_type column
+    const range = `${department}_Scorecard!A1:F`; // Added metric_type column
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SHEET_ID,
@@ -49,7 +29,6 @@ export default async function handler(req, res) {
 
     const rows = response.data.values || [];
     
-    // Verify headers
     if (rows.length === 0) {
       return res.status(400).json({
         error: 'Empty sheet',
@@ -58,58 +37,60 @@ export default async function handler(req, res) {
     }
 
     const headers = rows[0].map(header => header.toLowerCase().trim());
-    const requiredHeaders = ['scorecard_name', 'goal', 'actual', 'owner'];
     
-    // Verify all required headers exist
-    const missingHeaders = requiredHeaders.filter(
-      required => !headers.some(header => header.includes(required))
-    );
-    
-    if (missingHeaders.length > 0) {
-      return res.status(400).json({
-        error: 'Invalid sheet structure',
-        details: `Missing required columns: ${missingHeaders.join(', ')}`
-      });
-    }
-
-    // Map column indices
+    // Get column indices
     const columnIndices = {
       scorecard_name: headers.findIndex(h => h.includes('scorecard_name')),
       goal: headers.findIndex(h => h.includes('goal')),
       actual: headers.findIndex(h => h.includes('actual')),
-      owner: headers.findIndex(h => h.includes('owner'))
+      owner: headers.findIndex(h => h.includes('owner')),
+      date: headers.findIndex(h => h.includes('date')),
+      metric_type: headers.findIndex(h => h.includes('metric_type')) // 'higher_better' or 'lower_better'
     };
 
-    // Format the data, skipping the header row
-    const formattedData = rows.slice(1).map(row => ({
+    // Format data
+    let formattedData = rows.slice(1).map(row => ({
       scorecard_name: row[columnIndices.scorecard_name] || '',
       goal: parseFloat(row[columnIndices.goal]) || 0,
       actual: parseFloat(row[columnIndices.actual]) || 0,
-      owner: row[columnIndices.owner] || 'Unassigned'
+      owner: row[columnIndices.owner] || 'Unassigned',
+      date: row[columnIndices.date] ? new Date(row[columnIndices.date]) : null,
+      metric_type: row[columnIndices.metric_type] || 'higher_better'
     }));
 
-    // Filter out any rows where required fields are missing or invalid
-    const validData = formattedData.filter(item => 
-      item.scorecard_name && 
-      !isNaN(item.goal) && 
-      !isNaN(item.actual) &&
-      item.goal > 0 // Ensure goal is positive
-    );
-
-    if (validData.length === 0) {
-      return res.status(404).json({
-        error: 'No valid data',
-        details: `No valid scorecard entries found in ${department}_Scorecard`
-      });
+    // Filter by date if provided
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      formattedData = formattedData.filter(item => 
+        item.date && item.date >= start && item.date <= end
+      );
     }
 
-    res.status(200).json(validData);
+    // Aggregate data by scorecard name
+    const aggregatedData = Object.values(formattedData.reduce((acc, item) => {
+      if (!acc[item.scorecard_name]) {
+        acc[item.scorecard_name] = {
+          scorecard_name: item.scorecard_name,
+          goal: item.goal, // Keep original goal
+          actual: 0, // Will sum up actuals
+          owner: item.owner,
+          metric_type: item.metric_type,
+          entries: 0 // Track number of entries for averaging if needed
+        };
+      }
+      acc[item.scorecard_name].actual += item.actual;
+      acc[item.scorecard_name].entries += 1;
+      return acc;
+    }, {}));
+
+    res.status(200).json(aggregatedData);
   } catch (error) {
     console.error('API Error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch scorecard data', 
-      details: error.message,
-      department: req.query.department 
+      details: error.message
     });
   }
 }

@@ -111,179 +111,177 @@ const DateSelector = ({ onDateChange }) => {
 
 // Add PerformanceSummary component
 const PerformanceSummary = ({ data }) => {
-  const hitCount = data.filter(item => (item.actual / item.goal) >= 100).length;
-  const totalCount = data.length;
-  const hitPercentage = (hitCount / totalCount) * 100 || 0;
-
-  // Helper function to get current quarter progress (0-1)
-  const getCurrentQuarterProgress = () => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const quarterMonth = currentMonth % 3;
-    const monthProgress = now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return (quarterMonth * 1 + monthProgress) / 3;
+    // Calculate hit count considering metric type
+    const hitCount = data.filter(item => {
+      const percentage = (item.actual / item.goal) * 100;
+      return item.metric_type === 'lower_better' 
+        ? percentage <= 100 
+        : percentage >= 100;
+    }).length;
+    
+    const totalCount = data.length;
+    const hitPercentage = (hitCount / totalCount) * 100 || 0;
+  
+    // Calculate overall progress
+    const overallProgress = data.reduce((acc, item) => {
+      const percentage = (item.actual / item.goal) * 100;
+      return acc + (item.metric_type === 'lower_better' 
+        ? Math.max(0, 200 - percentage) 
+        : Math.min(percentage, 100));
+    }, 0) / totalCount;
+  
+    // Get highest performing metric
+    const bestPerformer = [...data].sort((a, b) => {
+      const getScore = (item) => {
+        const percentage = (item.actual / item.goal) * 100;
+        return item.metric_type === 'lower_better' 
+          ? Math.max(0, 200 - percentage)
+          : percentage;
+      };
+      return getScore(b) - getScore(a);
+    })[0];
+  
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Scorecards Hit Progress */}
+        <div className="p-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
+          <div className="relative w-32 h-32 mx-auto">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              <circle
+                className="stroke-current text-gray-700"
+                strokeWidth="10"
+                fill="transparent"
+                r="45"
+                cx="50"
+                cy="50"
+              />
+              <circle
+                className="stroke-current text-blue-500"
+                strokeWidth="10"
+                strokeDasharray={`${hitPercentage * 2.827}, 282.7`}
+                strokeLinecap="round"
+                fill="transparent"
+                r="45"
+                cx="50"
+                cy="50"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-bold text-blue-400">{hitCount}</span>
+              <span className="text-sm text-gray-400">of {totalCount}</span>
+            </div>
+          </div>
+          <p className="text-center mt-4 text-gray-300">Scorecards Hit</p>
+        </div>
+  
+        {/* Overall Progress */}
+        <div className="p-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
+          <h3 className="text-lg font-semibold text-gray-200 mb-4">Performance Overview</h3>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-gray-400">Overall Progress</span>
+              <div className="flex items-end gap-2">
+                <span className="text-3xl font-bold text-blue-400">
+                  {overallProgress.toFixed(1)}%
+                </span>
+                <span className="text-sm text-gray-500 mb-1">average</span>
+              </div>
+            </div>
+            <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full rounded-full bg-blue-500"
+                style={{ width: `${overallProgress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+  
+        {/* Top Performer */}
+        <div className="p-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
+          <h3 className="text-lg font-semibold text-gray-200 mb-4">Top Performer</h3>
+          {bestPerformer && (
+            <div className="space-y-3">
+              <div className="text-sm text-gray-400">{bestPerformer.scorecard_name}</div>
+              <div className="flex items-center gap-3">
+                <div className="text-3xl font-bold text-green-500">
+                  {((bestPerformer.actual / bestPerformer.goal) * 100).toFixed(1)}%
+                </div>
+                <TrendingUp className="w-6 h-6 text-green-500" />
+              </div>
+              <div className="text-sm text-gray-500">Owned by {bestPerformer.owner}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
-  // Calculate if each metric is on track for the quarter
-  const quarterlyTarget = getCurrentQuarterProgress();
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      {/* Circular Progress */}
-      <div className="p-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
-        <div className="relative w-32 h-32 mx-auto">
-          <svg className="w-full h-full" viewBox="0 0 100 100">
-            {/* Background circle */}
-            <circle
-              className="stroke-current text-gray-700"
-              strokeWidth="10"
-              fill="transparent"
-              r="45"
-              cx="50"
-              cy="50"
-            />
-            {/* Progress circle */}
-            <circle
-              className="stroke-current text-blue-500 transform -rotate-90 origin-center"
-              strokeWidth="10"
-              strokeDasharray={`${hitPercentage * 2.827}, 282.7`}
-              strokeLinecap="round"
-              fill="transparent"
-              r="45"
-              cx="50"
-              cy="50"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-blue-400">{hitCount}</span>
-            <span className="text-sm text-gray-400">of {totalCount}</span>
-          </div>
-        </div>
-        <p className="text-center mt-4 text-gray-300">Scorecards Hit</p>
-      </div>
-
-      {/* Quarterly Progress */}
-      <div className="p-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
-        <h3 className="text-lg font-semibold text-gray-200 mb-4">Quarterly Progress</h3>
-        <div className="space-y-4">
-          {data.map((item, index) => {
-            const percentage = (item.actual / item.goal) * 100;
-            const isOnTrack = percentage >= (quarterlyTarget * 100);
-            return (
-              <div key={index} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">{item.scorecard_name}</span>
-                  <span className={isOnTrack ? 'text-green-500' : 'text-yellow-500'}>
-                    {isOnTrack ? 'On Track' : 'Behind'}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      isOnTrack ? 'bg-green-500' : 'bg-yellow-500'
-                    }`}
-                    style={{ width: `${Math.min(percentage, 100)}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Weekly Comparison */}
-      <div className="p-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
-        <h3 className="text-lg font-semibold text-gray-200 mb-4">Weekly Summary</h3>
-        <div className="space-y-4">
-          {data.map((item, index) => {
-            const percentage = (item.actual / item.goal) * 100;
-            return (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">{item.scorecard_name}</span>
-                <div className="flex items-center gap-2">
-                  {percentage >= 100 ? (
-                    <TrendingUp className="w-4 h-4 text-green-500" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4 text-yellow-500" />
-                  )}
-                  <span className={`text-sm ${
-                    percentage >= 100 ? 'text-green-500' : 'text-yellow-500'
-                  }`}>
-                    {percentage.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Original ScoreCard component
 const ScoreCard = ({ item }) => {
-  const percentage = (item.actual / item.goal) * 100;
-  const isHit = percentage >= 100;
+    const percentage = (item.actual / item.goal) * 100;
+    const isLowerBetter = item.metric_type === 'lower_better';
+    const isHit = isLowerBetter ? percentage <= 100 : percentage >= 100;
+    
+    return (
+      <div className="p-6 mb-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727] hover:translate-y-[-2px] transition-all duration-300">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          {/* Left side - Title and Owner */}
+          <div className="flex-1">
+            <h3 className="text-xl font-semibold text-gray-200">{item.scorecard_name}</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Owner:</span>
+              <span className="text-sm font-medium text-blue-400">{item.owner}</span>
+            </div>
+          </div>
   
-  return (
-    <div className="p-6 mb-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727] hover:translate-y-[-2px] transition-all duration-300">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        {/* Left side - Title and Owner */}
-        <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-200">{item.scorecard_name}</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">Owner:</span>
-            <span className="text-sm font-medium text-blue-400">{item.owner}</span>
+          {/* Middle - Numbers */}
+          <div className="flex flex-col items-center bg-[#222] rounded-xl p-4 min-w-[200px]">
+            <div className="text-4xl font-bold text-gray-200 mb-2">
+              {item.actual.toLocaleString()}
+            </div>
+            <div className="text-sm text-gray-400">
+              Target: {isLowerBetter ? '≤' : ''}{item.goal.toLocaleString()}
+            </div>
           </div>
-        </div>
-
-        {/* Middle - Numbers */}
-        <div className="flex flex-col items-center bg-[#222] rounded-xl p-4 min-w-[200px]">
-          <div className="text-4xl font-bold text-gray-200 mb-2">
-            {item.actual.toLocaleString()}
-          </div>
-          <div className="text-sm text-gray-400">
-            Target: {item.goal.toLocaleString()}
-          </div>
-        </div>
-
-        {/* Right side - Progress and Status */}
-        <div className="flex flex-col items-end gap-2 min-w-[140px]">
-          <div className="flex items-center gap-2">
-            {percentage >= 100 ? (
-              <TrendingUp className="w-5 h-5 text-green-500" />
-            ) : (
-              <TrendingDown className="w-5 h-5 text-yellow-500" />
-            )}
-            <span className={`text-2xl font-bold ${
-              percentage >= 100 ? 'text-green-500' : 'text-yellow-500'
+  
+          {/* Right side - Progress and Status */}
+          <div className="flex flex-col items-end gap-2 min-w-[140px]">
+            <div className="flex items-center gap-2">
+              {isHit ? (
+                <TrendingDown className={`w-5 h-5 ${isLowerBetter ? 'text-green-500' : 'text-red-500'}`} />
+              ) : (
+                <TrendingUp className={`w-5 h-5 ${isLowerBetter ? 'text-red-500' : 'text-green-500'}`} />
+              )}
+              <span className={`text-2xl font-bold ${
+                isHit ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {percentage.toFixed(1)}%
+              </span>
+            </div>
+            <div className={`px-4 py-2 rounded-full ${
+              isHit 
+                ? 'bg-green-500/20 text-green-500 border border-green-500/20' 
+                : 'bg-red-500/20 text-red-500 border border-red-500/20'
             }`}>
-              {percentage.toFixed(1)}%
-            </span>
-          </div>
-          <div className={`px-4 py-2 rounded-full ${
-            isHit 
-              ? 'bg-green-500/20 text-green-500 border border-green-500/20' 
-              : 'bg-red-500/20 text-red-500 border border-red-500/20'
-          }`}>
-            {isHit ? 'Hit!' : 'Missed'}
+              {isHit ? 'Hit!' : 'Missed'}
+            </div>
           </div>
         </div>
+  
+        {/* Progress Bar */}
+        <div className="mt-6 w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+          <div 
+            className={`h-full rounded-full transition-all duration-500 ${
+              isHit ? 'bg-green-500' : 'bg-red-500'
+            }`}
+            style={{ 
+              width: `${Math.min(percentage, 100)}%`,
+              marginLeft: isLowerBetter ? `${Math.max(0, percentage - 100)}%` : '0'
+            }}
+          />
+        </div>
       </div>
-
-      {/* Progress Bar */}
-      <div className="mt-6 w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-        <div 
-          className={`h-full rounded-full transition-all duration-500 ${
-            percentage >= 100 ? 'bg-green-500' : 'bg-yellow-500'
-          }`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-};
+    );
+  };
 
 // Main Component
 export default function WeeklyScorecard() {
