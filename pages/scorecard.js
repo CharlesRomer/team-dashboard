@@ -7,10 +7,7 @@ import {
   Settings, 
   Menu, 
   ClipboardList,
-  RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  AlertCircle
+  RefreshCw
 } from 'lucide-react';
 
 const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
@@ -20,53 +17,38 @@ const ScoreCard = ({ item }) => {
   const isHit = percentage >= 100;
   
   return (
-    <div className="p-6 mb-6 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727] hover:translate-y-[-2px] transition-all duration-300">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        {/* Left side - Title and Owner */}
+    <div className="p-6 mb-4 rounded-xl bg-[#1a1a1a] shadow-[20px_20px_60px_#0d0d0d,_-20px_-20px_60px_#272727]">
+      <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-200 mb-2">{item.scorecard_name}</h3>
-          <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-200">{item.scorecard_name}</h3>
+          <div className="mt-1 flex items-center gap-2">
             <span className="text-sm text-gray-400">Owner:</span>
-            <span className="text-sm font-medium text-blue-400">{item.owner}</span>
+            <span className="text-sm font-medium text-gray-300">{item.owner}</span>
           </div>
         </div>
-
-        {/* Middle - Numbers */}
-        <div className="flex flex-col items-center bg-[#222] rounded-xl p-4 min-w-[200px]">
-          <div className="text-4xl font-bold text-gray-200 mb-2">
-            {item.actual.toLocaleString()}
+        
+        <div className="grid grid-cols-3 gap-8 items-center">
+          <div className="text-right">
+            <div className="text-2xl font-bold text-gray-200">{item.actual.toLocaleString()}</div>
+            <div className="text-sm text-gray-400">Goal: {item.goal.toLocaleString()}</div>
           </div>
-          <div className="text-sm text-gray-400">
-            Target: {item.goal.toLocaleString()}
-          </div>
-        </div>
-
-        {/* Right side - Progress and Status */}
-        <div className="flex flex-col items-end gap-2 min-w-[140px]">
-          <div className="flex items-center gap-2">
-            {percentage >= 100 ? (
-              <TrendingUp className="w-5 h-5 text-green-500" />
-            ) : (
-              <TrendingDown className="w-5 h-5 text-yellow-500" />
-            )}
-            <span className={`text-2xl font-bold ${
-              percentage >= 100 ? 'text-green-500' : 'text-yellow-500'
-            }`}>
+          
+          <div className="text-right">
+            <div className={`text-lg font-semibold ${percentage >= 100 ? 'text-green-500' : 'text-yellow-500'}`}>
               {percentage.toFixed(1)}%
-            </span>
+            </div>
           </div>
-          <div className={`px-4 py-2 rounded-full ${
-            isHit 
-              ? 'bg-green-500/20 text-green-500 border border-green-500/20' 
-              : 'bg-red-500/20 text-red-500 border border-red-500/20'
+          
+          <div className={`px-3 py-1 rounded-full text-center ${
+            isHit ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
           }`}>
             {isHit ? 'Hit!' : 'Missed'}
           </div>
         </div>
       </div>
-
+      
       {/* Progress Bar */}
-      <div className="mt-6 w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+      <div className="mt-4 w-full h-2 bg-gray-800 rounded-full overflow-hidden">
         <div 
           className={`h-full rounded-full transition-all duration-500 ${
             percentage >= 100 ? 'bg-green-500' : 'bg-yellow-500'
@@ -85,7 +67,6 @@ export default function WeeklyScorecard() {
   const [error, setError] = useState(null);
   const [activeDepartment, setActiveDepartment] = useState('Marketing');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const navItems = [
@@ -97,19 +78,22 @@ export default function WeeklyScorecard() {
   ];
 
   const fetchData = async () => {
-    setRefreshing(true);
+    setLoading(true);
     try {
+      console.log('Fetching data for department:', activeDepartment);
       const response = await fetch(`/api/getScorecardData?department=${activeDepartment}`);
-      if (!response.ok) throw new Error('Failed to fetch data');
-      const result = await response.json();
-      setData(result);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const jsonData = await response.json();
+      console.log('Received data:', jsonData);
+      setData(jsonData);
       setLastUpdated(new Date().toLocaleTimeString());
-      setError(null);
     } catch (err) {
+      console.error('Error fetching data:', err);
       setError(err.message);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -129,62 +113,15 @@ export default function WeeklyScorecard() {
       <button
         key={item.name}
         onClick={() => router.push(item.href)}
-        className={`flex items-center px-4 py-3 w-full text-gray-300 hover:bg-[#222] transition-all duration-300 ${
+        className={`flex items-center px-4 py-3 w-full text-gray-300 hover:bg-[#222] transition-colors ${
           isActive ? 'text-blue-400 bg-[#222]' : ''
         }`}
       >
-        <Icon className={`w-6 h-6 transition-transform duration-300 ${isActive ? 'scale-110' : ''}`} />
-        {sidebarOpen && (
-          <span className={`ml-4 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-70'}`}>
-            {item.name}
-          </span>
-        )}
+        <Icon className="w-6 h-6" />
+        {sidebarOpen && <span className="ml-4">{item.name}</span>}
       </button>
     );
   };
-
-  const renderHeader = () => (
-    <div className="flex justify-between items-center mb-8">
-      <div>
-        <h1 className="text-3xl font-bold text-blue-400">Weekly L10 Scorecard</h1>
-        {lastUpdated && (
-          <p className="text-sm text-gray-500 mt-1">
-            Last updated: {lastUpdated}
-          </p>
-        )}
-      </div>
-      <button 
-        onClick={fetchData} 
-        disabled={refreshing}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 ${
-          refreshing ? 'opacity-70 cursor-not-allowed' : ''
-        }`}
-      >
-        <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-        {refreshing ? 'Refreshing...' : 'Refresh Data'}
-      </button>
-    </div>
-  );
-
-  if (error) {
-    return (
-      <div className="flex h-screen bg-[#1a1a1a]">
-        {/* Include Sidebar here */}
-        <div className="p-6 flex-1">
-          {renderHeader()}
-          <div style={cardStyle} className="p-6 rounded-xl">
-            <div className="flex items-center gap-3 text-red-400">
-              <AlertCircle className="w-6 h-6" />
-              <div>
-                <h3 className="font-semibold">Error Loading Scorecard</h3>
-                <p className="text-sm opacity-90">{error}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-[#1a1a1a]">
@@ -212,15 +149,32 @@ export default function WeeklyScorecard() {
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
         <div className="p-8">
-          {renderHeader()}
-          
+          {/* Header */}
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-blue-400">Weekly L10 Scorecard</h1>
+              {lastUpdated && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Last updated: {lastUpdated}
+                </p>
+              )}
+            </div>
+            <button 
+              onClick={fetchData}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </button>
+          </div>
+
           {/* Department Tabs */}
-          <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+          <div className="flex gap-2 mb-8">
             {departments.map((dept) => (
               <button
                 key={dept}
                 onClick={() => setActiveDepartment(dept)}
-                className={`px-6 py-2 rounded-lg transition-all duration-300 ${
+                className={`px-6 py-2 rounded-lg transition-colors ${
                   activeDepartment === dept 
                     ? 'bg-blue-500 text-white' 
                     : 'bg-[#222] text-gray-400 hover:bg-[#333]'
@@ -231,18 +185,36 @@ export default function WeeklyScorecard() {
             ))}
           </div>
 
+          {/* Debug Info */}
+          <div className="mb-4 p-4 bg-[#222] rounded-lg">
+            <p className="text-gray-400">Debug Info:</p>
+            <p className="text-sm text-gray-500">Active Department: {activeDepartment}</p>
+            <p className="text-sm text-gray-500">Data Keys: {Object.keys(data).join(', ')}</p>
+            <p className="text-sm text-gray-500">Loading: {loading ? 'true' : 'false'}</p>
+            <p className="text-sm text-gray-500">Error: {error || 'none'}</p>
+          </div>
+
           {/* Scorecard List */}
           {loading ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {[1, 2, 3].map((n) => (
                 <div key={n} className="h-32 rounded-xl animate-pulse bg-[#222]" />
               ))}
             </div>
+          ) : error ? (
+            <div className="p-4 rounded-xl bg-red-500/20 text-red-400">
+              Error: {error}
+            </div>
           ) : (
-            <div>
+            <div className="space-y-4">
               {data[activeDepartment]?.map((item, index) => (
                 <ScoreCard key={index} item={item} />
               ))}
+              {(!data[activeDepartment] || data[activeDepartment].length === 0) && (
+                <div className="p-4 rounded-xl bg-[#222] text-gray-400">
+                  No data available for {activeDepartment}
+                </div>
+              )}
             </div>
           )}
         </div>
