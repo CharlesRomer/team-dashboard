@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { 
@@ -420,9 +422,12 @@ export default function WeeklyScorecard() {
     }
   };
 
-  useEffect(() => {
+  // In scorecard.js, update the useEffect
+useEffect(() => {
+  if (typeof window !== 'undefined') {
     fetchData();
-  }, [activeDepartment, dateRange]);
+  }
+}, [activeDepartment, dateRange]);
 
   const renderSidebarNavItem = (item) => {
     const Icon = item.icon;
