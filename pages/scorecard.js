@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
+const dateFilters = ['Current Week', 'Previous Week', 'Quarter'];
 
 // Add DateSelector component
 const DateSelector = ({ onDateChange }) => {
