@@ -18,9 +18,9 @@ export default async function handler(req, res) {
     // Validate department
     const departmentValidation = validateDepartment(department);
     if (!departmentValidation.isValid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid department',
-        details: departmentValidation.errors 
+        details: departmentValidation.errors
       });
     }
 
@@ -28,9 +28,9 @@ export default async function handler(req, res) {
     if (startDate && endDate) {
       const dateValidation = validateDateRange(startDate, endDate);
       if (!dateValidation.isValid) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Invalid date range',
-          details: dateValidation.errors 
+          details: dateValidation.errors
         });
       }
     }
@@ -43,6 +43,18 @@ export default async function handler(req, res) {
       return res.status(200).json(cachedData.data);
     }
 
+    // Debugging environment variables and request data
+    console.log('API Debug:', {
+      hasClientEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.GOOGLE_PRIVATE_KEY,
+      hasSheetId: !!process.env.SHEET_ID,
+      department
+    });
+
+    if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY || !process.env.SHEET_ID) {
+      throw new Error('Missing required environment variables');
+    }
+
     // Initialize Google Sheets API
     const auth = new google.auth.GoogleAuth({
       credentials: {
@@ -53,81 +65,97 @@ export default async function handler(req, res) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    
+
     // Get sheet data
     const sheetTitle = `${departmentValidation.data}_Scorecard`;
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SHEET_ID,
-      range: `${sheetTitle}!A1:F`,
-      valueRenderOption: 'UNFORMATTED_VALUE',
-      dateTimeRenderOption: 'FORMATTED_STRING'
-    });
-
-    const rows = response.data.values || [];
-    
-    if (rows.length === 0) {
-      return res.status(404).json({
-        error: 'No data found',
-        details: `${sheetTitle} sheet is empty`
+    try {
+      // Verify sheet accessibility
+      await sheets.spreadsheets.get({
+        spreadsheetId: process.env.SHEET_ID,
       });
-    }
 
-    // Process headers
-    const headers = rows[0].map(header => header.toLowerCase().trim());
-    const requiredColumns = ['scorecard_name', 'goal', 'actual', 'owner', 'date', 'metric_type'];
-    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-    
-    if (missingColumns.length > 0) {
-      return res.status(400).json({
-        error: 'Invalid sheet structure',
-        details: `Missing required columns: ${missingColumns.join(', ')}`
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.SHEET_ID,
+        range: `${sheetTitle}!A1:F`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+        dateTimeRenderOption: 'FORMATTED_STRING'
       });
-    }
 
-    // Map column indices
-    const columnIndices = requiredColumns.reduce((acc, col) => {
-      acc[col] = headers.indexOf(col);
-      return acc;
-    }, {});
-
-    // Process data
-    let formattedData = rows.slice(1).map((row, index) => {
-      try {
-        return {
-          scorecard_name: row[columnIndices.scorecard_name] || '',
-          goal: parseFloat(row[columnIndices.goal]) || 0,
-          actual: parseFloat(row[columnIndices.actual]) || 0,
-          owner: row[columnIndices.owner] || 'Unassigned',
-          date: row[columnIndices.date] ? new Date(row[columnIndices.date]) : new Date(),
-          metric_type: row[columnIndices.metric_type] || 'higher_better'
-        };
-      } catch (error) {
-        console.warn(`Error processing row ${index + 2}:`, error);
-        return null;
+      const rows = response.data.values || [];
+      if (rows.length === 0) {
+        return res.status(404).json({
+          error: 'No data found',
+          details: `${sheetTitle} sheet is empty`
+        });
       }
-    }).filter(Boolean); // Remove any null entries from failed processing
 
-    // Filter by date if provided
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      
-      formattedData = formattedData.filter(item => 
-        item.date && item.date >= start && item.date <= end
-      );
+      // Process headers
+      const headers = rows[0].map(header => header.toLowerCase().trim());
+      const requiredColumns = ['scorecard_name', 'goal', 'actual', 'owner', 'date', 'metric_type'];
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+
+      if (missingColumns.length > 0) {
+        return res.status(400).json({
+          error: 'Invalid sheet structure',
+          details: `Missing required columns: ${missingColumns.join(', ')}`
+        });
+      }
+
+      // Map column indices
+      const columnIndices = requiredColumns.reduce((acc, col) => {
+        acc[col] = headers.indexOf(col);
+        return acc;
+      }, {});
+
+      // Process data
+      let formattedData = rows.slice(1).map((row, index) => {
+        try {
+          return {
+            scorecard_name: row[columnIndices.scorecard_name] || '',
+            goal: parseFloat(row[columnIndices.goal]) || 0,
+            actual: parseFloat(row[columnIndices.actual]) || 0,
+            owner: row[columnIndices.owner] || 'Unassigned',
+            date: row[columnIndices.date] ? new Date(row[columnIndices.date]) : new Date(),
+            metric_type: row[columnIndices.metric_type] || 'higher_better'
+          };
+        } catch (error) {
+          console.warn(`Error processing row ${index + 2}:`, error);
+          return null;
+        }
+      }).filter(Boolean); // Remove any null entries from failed processing
+
+      // Filter by date if provided
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+
+        formattedData = formattedData.filter(item =>
+          item.date && item.date >= start && item.date <= end
+        );
+      }
+
+      // Update cache
+      cache.set(cacheKey, {
+        timestamp: Date.now(),
+        data: formattedData
+      });
+
+      // Set cache control headers
+      res.setHeader('Cache-Control', `s-maxage=${CACHE_DURATION}`);
+      return res.status(200).json(formattedData);
+    } catch (sheetError) {
+      console.error('Sheet Error:', sheetError);
+      return res.status(500).json({
+        error: 'Failed to access sheet',
+        details: {
+          message: sheetError.message,
+          sheet: sheetTitle,
+          code: sheetError.code
+        }
+      });
     }
-
-    // Update cache
-    cache.set(cacheKey, {
-      timestamp: Date.now(),
-      data: formattedData
-    });
-
-    // Set cache control headers
-    res.setHeader('Cache-Control', `s-maxage=${CACHE_DURATION}`);
-    return res.status(200).json(formattedData);
 
   } catch (error) {
     console.error('API Error:', {
@@ -138,7 +166,7 @@ export default async function handler(req, res) {
     // Clear cache on error
     cache.clear();
 
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch scorecard data',
       details: error.message,
       department: req.query.department
