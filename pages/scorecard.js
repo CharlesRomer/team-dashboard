@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+// test comment
+
 import { 
   Home, 
-  BarChart2, 
-  Users, 
-  Settings, 
-  Menu, 
   ClipboardList,
   RefreshCw,
   TrendingUp,
   TrendingDown,
   AlertCircle,
   PlusCircle,
-  Minus
+  Menu,
+  ChevronDown,
+  BugPlay,
+  X
 } from 'lucide-react';
 
 const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
@@ -283,6 +282,84 @@ const ScoreCard = ({ item }) => {
     );
   };
 
+// Add after your existing components
+const DebugConsole = ({ isOpen, onClose }) => {
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => {
+    const originalConsole = {
+      log: console.log,
+      error: console.error,
+      warn: console.warn
+    };
+
+    console.log = (...args) => {
+      setLogs(prev => [...prev, { type: 'log', content: args, timestamp: new Date() }]);
+      originalConsole.log(...args);
+    };
+
+    console.error = (...args) => {
+      setLogs(prev => [...prev, { type: 'error', content: args, timestamp: new Date() }]);
+      originalConsole.error(...args);
+    };
+
+    console.warn = (...args) => {
+      setLogs(prev => [...prev, { type: 'warn', content: args, timestamp: new Date() }]);
+      originalConsole.warn(...args);
+    };
+
+    return () => {
+      console.log = originalConsole.log;
+      console.error = originalConsole.error;
+      console.warn = originalConsole.warn;
+    };
+  }, []);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-[#1a1a1a] rounded-xl w-full max-w-3xl m-4 shadow-2xl">
+        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+          <h2 className="text-xl font-semibold text-blue-400">Debug Console</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="h-96 overflow-auto p-4 bg-[#222] font-mono text-sm">
+          {logs.map((log, index) => (
+            <div 
+              key={index} 
+              className={`mb-2 ${
+                log.type === 'error' ? 'text-red-400' : 
+                log.type === 'warn' ? 'text-yellow-400' : 
+                'text-gray-300'
+              }`}
+            >
+              <span className="text-gray-500">[{log.timestamp.toLocaleTimeString()}] </span>
+              <span className="text-gray-400">{log.type.toUpperCase()}: </span>
+              {JSON.stringify(log.content)}
+            </div>
+          ))}
+        </div>
+        <div className="p-4 border-t border-gray-800 flex justify-end">
+          <button
+            onClick={() => {
+              const logText = logs.map(log => 
+                `[${log.timestamp.toLocaleTimeString()}] ${log.type.toUpperCase()}: ${JSON.stringify(log.content)}`
+              ).join('\n');
+              navigator.clipboard.writeText(logText);
+            }}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Copy Logs
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main Component
 export default function WeeklyScorecard() {
   const router = useRouter();
@@ -292,15 +369,12 @@ export default function WeeklyScorecard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [dateRange, setDateRange] = useState(null);
+  const [debugConsoleOpen, setDebugConsoleOpen] = useState(false);
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Weekly L10 Scorecard', href: '/scorecard', icon: ClipboardList },
-    { name: 'Analytics', href: '/analytics', icon: BarChart2 },
-    { name: 'Team', href: '/team', icon: Users },
-    { name: 'Settings', href: '/settings', icon: Settings },
   ];
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -350,25 +424,35 @@ export default function WeeklyScorecard() {
   return (
     <div className="flex h-screen bg-[#1a1a1a]">
       {/* Sidebar */}
-      <div 
-        style={cardStyle} 
-        className={`fixed h-full z-40 transition-all duration-300 ${
-          sidebarOpen ? 'w-64' : 'w-20'
-        }`}
-      >
-        <div className="flex items-center justify-between p-4">
-          {sidebarOpen && <span className="text-xl font-bold text-blue-400">Menu</span>}
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-[#222] transition-colors"
-          >
-            <Menu className="w-6 h-6 text-gray-400" />
-          </button>
-        </div>
-        <nav className="mt-8">
-          {navItems.map(renderSidebarNavItem)}
-        </nav>
-      </div>
+<div 
+  style={cardStyle} 
+  className={`fixed h-full z-40 flex flex-col transition-all duration-300 ${
+    sidebarOpen ? 'w-64' : 'w-20'
+  }`}
+>
+  <div className="flex items-center justify-between p-4">
+    {sidebarOpen && <span className="text-xl font-bold text-blue-400">Menu</span>}
+    <button 
+      onClick={() => setSidebarOpen(!sidebarOpen)}
+      className="p-2 rounded-lg hover:bg-[#222] transition-colors"
+    >
+      <Menu className="w-6 h-6 text-gray-400" />
+    </button>
+  </div>
+  
+  <nav className="mt-8 flex-1">
+    {navItems.map(renderSidebarNavItem)}
+  </nav>
+
+  {/* Debug Console Button */}
+  <button
+    onClick={() => setDebugConsoleOpen(true)}
+    className="flex items-center gap-2 px-4 py-3 text-gray-400 hover:bg-[#222] transition-colors w-full"
+  >
+    <BugPlay className="w-6 h-6" />
+    {sidebarOpen && <span>Debug Console</span>}
+  </button>
+</div>
 
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
@@ -441,6 +525,10 @@ export default function WeeklyScorecard() {
           )}
         </div>
       </div>
+      <DebugConsole 
+  isOpen={debugConsoleOpen} 
+  onClose={() => setDebugConsoleOpen(false)} 
+/>
     </div>
   );
 }
