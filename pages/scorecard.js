@@ -390,33 +390,35 @@ export default function WeeklyScorecard() {
   ];
 
   // In the fetchData function in scorecard.js
-const fetchData = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    let url = `/api/getScorecardData?department=${activeDepartment}`;
-    if (dateRange?.dates) {
-      url += `&startDate=${dateRange.dates[0].toISOString()}&endDate=${dateRange.dates[1].toISOString()}`;
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let url = `/api/getScorecardData?department=${activeDepartment}`;
+      if (dateRange?.dates) {
+        url += `&startDate=${dateRange.dates[0].toISOString()}&endDate=${dateRange.dates[1].toISOString()}`;
+      }
+      
+      console.log('Fetching from:', url); // Debug log
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server error: ${response.status}`);
+      }
+      
+      const jsonData = await response.json();
+      console.log('Received data:', jsonData); // Debug log
+      
+      setData(Array.isArray(jsonData) ? jsonData : []);
+      setLastUpdated(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+      setDebugConsoleOpen(true); // Automatically open debug console on error
+    } finally {
+      setLoading(false);
     }
-    
-    const response = await fetch(url);
-    const jsonData = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(jsonData.error || 'Failed to fetch data');
-    }
-    
-    setData(Array.isArray(jsonData) ? jsonData : []);
-    setLastUpdated(new Date().toLocaleTimeString());
-  } catch (err) {
-    console.error('Error fetching data:', err);
-    setError(err.message);
-    // Open debug console automatically on error
-    setDebugConsoleOpen(true);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchData();
