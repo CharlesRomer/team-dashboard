@@ -45,10 +45,10 @@ export default async function handler(req, res) {
       actual: headers.findIndex(h => h.includes('actual')),
       owner: headers.findIndex(h => h.includes('owner')),
       date: headers.findIndex(h => h.includes('date')),
-      metric_type: headers.findIndex(h => h.includes('metric_type')) // 'higher_better' or 'lower_better'
+      metric_type: headers.findIndex(h => h.includes('metric_type'))
     };
 
-    // Format data
+    // Format all data
     let formattedData = rows.slice(1).map(row => ({
       scorecard_name: row[columnIndices.scorecard_name] || '',
       goal: parseFloat(row[columnIndices.goal]) || 0,
@@ -62,13 +62,15 @@ export default async function handler(req, res) {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
       
       formattedData = formattedData.filter(item => 
         item.date && item.date >= start && item.date <= end
       );
     }
 
-    // Aggregate data by scorecard name
+    // Group and aggregate data by scorecard name
     const aggregatedData = Object.values(formattedData.reduce((acc, item) => {
       if (!acc[item.scorecard_name]) {
         acc[item.scorecard_name] = {
@@ -77,11 +79,17 @@ export default async function handler(req, res) {
           actual: 0, // Will sum up actuals
           owner: item.owner,
           metric_type: item.metric_type,
-          entries: 0 // Track number of entries for averaging if needed
+          date: item.date,
+          entries: 0
         };
       }
       acc[item.scorecard_name].actual += item.actual;
       acc[item.scorecard_name].entries += 1;
+      // Keep the latest date
+      if (!acc[item.scorecard_name].date || 
+          (item.date && item.date > acc[item.scorecard_name].date)) {
+        acc[item.scorecard_name].date = item.date;
+      }
       return acc;
     }, {}));
 
@@ -90,7 +98,8 @@ export default async function handler(req, res) {
     console.error('API Error:', error);
     res.status(500).json({ 
       error: 'Failed to fetch scorecard data', 
-      details: error.message
+      details: error.message,
+      department: req.query.department 
     });
   }
 }
