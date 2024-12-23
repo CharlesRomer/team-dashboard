@@ -374,6 +374,8 @@ export default function WeeklyScorecard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [dateRange, setDateRange] = useState(null);
   const [debugConsoleOpen, setDebugConsoleOpen] = useState(false);
+  const [selectedDateFilter, setSelectedDateFilter] = useState(dateFilters[0]);
+  const [error, setError] = useState(null);
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
