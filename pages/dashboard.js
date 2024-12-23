@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
+const dateFilters = ['Current Week', 'Previous Week', 'Quarter'];
 
 export default function Dashboard() {
   const router = useRouter();
@@ -25,13 +26,14 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedSection, setExpandedSection] = useState('all');
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [selectedDateFilter, setSelectedDateFilter] = useState(dateFilters[0]);
 
   const fetchData = async (showRefreshState = true) => {
     if (showRefreshState) {
       setRefreshing(true);
     }
     try {
-      const response = await fetch('/api/getData');
+      const response = await fetch(`/api/getData?filter=${selectedDateFilter}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -55,7 +57,11 @@ export default function Dashboard() {
     // Set up auto-refresh every 5 minutes
     const interval = setInterval(() => fetchData(false), 300000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedDateFilter]);
+
+  const handleDateFilterChange = (event) => {
+    setSelectedDateFilter(event.target.value);
+  };
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home, active: router.pathname === '/dashboard' },
@@ -105,16 +111,29 @@ export default function Dashboard() {
           </p>
         )}
       </div>
-      <button 
-        onClick={() => fetchData()} 
-        disabled={refreshing}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 ${
-          refreshing ? 'opacity-70 cursor-not-allowed' : ''
-        }`}
-      >
-        <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-        {refreshing ? 'Refreshing...' : 'Refresh Data'}
-      </button>
+      <div className="flex items-center gap-4">
+        <select
+          value={selectedDateFilter}
+          onChange={handleDateFilterChange}
+          className="px-4 py-2 rounded-lg bg-gray-700 text-white"
+        >
+          {dateFilters.map((filter) => (
+            <option key={filter} value={filter}>
+              {filter}
+            </option>
+          ))}
+        </select>
+        <button 
+          onClick={() => fetchData()} 
+          disabled={refreshing}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 ${
+            refreshing ? 'opacity-70 cursor-not-allowed' : ''
+          }`}
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh Data'}
+        </button>
+      </div>
     </div>
   );
 
@@ -257,11 +276,11 @@ export default function Dashboard() {
               { 
                 title: 'Latest Value', 
                 value: data[data.length - 1]?.value || 0,
-                change: ((data[data.length - 1]?.value - data[data.length - 2]?.value) / data[data.length - 2]?.value * 100).toFixed(1)
+                change: data.length > 1 ? ((data[data.length - 1]?.value - data[data.length - 2]?.value) / data[data.length - 2]?.value * 100).toFixed(1) : 'N/A'
               },
               { 
                 title: 'Average Value', 
-                value: (data.reduce((acc, curr) => acc + curr.value, 0) / data.length).toFixed(2) 
+                value: data.length > 0 ? (data.reduce((acc, curr) => acc + curr.value, 0) / data.length).toFixed(2) : 'N/A'
               },
               { 
                 title: 'Total Entries', 
