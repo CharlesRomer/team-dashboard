@@ -6,7 +6,8 @@
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
-  NEXT_USE_SSR = "true"
   NODE_VERSION = "18"
+  NEXT_USE_SSR = "true"
 
-# Remove the headers section as it might be causing issues
+[functions]
+  node_bundler = "esbuild"
