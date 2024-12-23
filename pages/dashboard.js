@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   Home, 
   BarChart2, 
   Users, 
   Settings, 
   Menu, 
-  ClipboardList, 
+  ClipboardList,
   RefreshCw,
+  TrendingUp,
+  TrendingDown,
   AlertCircle,
-  ChevronUp,
-  ChevronDown
+  PlusCircle
 } from 'lucide-react';
+
+const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
 
 export default function Dashboard() {
   const router = useRouter();

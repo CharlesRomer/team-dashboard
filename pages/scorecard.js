@@ -1,4 +1,8 @@
-// test comment
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+// ... rest of your imports
 
 import { 
   Home, 
