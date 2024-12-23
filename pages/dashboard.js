@@ -14,6 +14,8 @@ import {
   PlusCircle
 } from 'lucide-react';
 
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
 const departments = ['Marketing', 'Creative', 'Sales', 'Product', 'Other'];
 const dateFilters = ['Current Week', 'Previous Week', 'Quarter'];
 
